@@ -1,0 +1,25 @@
+# My variables
+name: Abir Hamzi
+description: Blog
+google_verification: null
+
+
+# File management
+include: [".htaccess"]
+exclude: ["vendor", "README.md", "LICENSE"]
+
+
+# Sass
+sass:
+  style: :compressed
+  sass_dir: _sass
+
+
+# Markdown
+highlighter: rouge
+markdown: kramdown
+kramdown:
+  input: GFM
+  hard_wrap: false
+  auto_ids: true
+  syntax_highlighter: rouge

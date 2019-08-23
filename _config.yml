@@ -23,3 +23,5 @@ kramdown:
   hard_wrap: false
   auto_ids: true
   syntax_highlighter: rouge
+plugins:
+  - jekyll-gist

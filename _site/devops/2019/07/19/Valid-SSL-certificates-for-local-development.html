@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+
+    
+        <title>Setting a valid SSL certificates for local development</title>
+    
+
+    <meta name="description" content="Blog">
+
+    
+
+    <link rel="icon" href="/assets/img/favicon.png">
+    <link href='https://fonts.googleapis.com/css?family=Montserrat:400,700' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" type="text/css" href="/assets/css/main.css">
+</head>
+
+<body>
+
+    <div class="wrapper">
+        <div class="post">
+  <a class="post__back" href="/">&lt;-- home</a>
+  <h1 class="post__title">Setting a valid SSL certificates for local development</h1>
+  <p class="post__date">July 19, 2019</p>
+
+  <ul class="tags">
+      Tags:
+      
+        <a href="http://localhost:4000/tags#Nginx" class="tag">Nginx</a>.
+      
+        <a href="http://localhost:4000/tags#SSL/TLS" class="tag">SSL/TLS</a>.
+      
+  </ul>
+
+  <div class="post__content"?>
+    <p><img src="https://www.creawebagency.com/wp-content/uploads/2019/06/http-https.png" alt="TLS" /></p>
+
+<hr />
+
+<h1 id="overview">Overview</h1>
+<p>The web is quickly moving towards <code class="highlighter-rouge">HTTPS everywhere</code>. Whether providers like it or not, they have to adopt <code class="highlighter-rouge">HTTPS</code> for all their traffic in the near future.</p>
+
+<p>It’s no longer acceptable to use <code class="highlighter-rouge">HTTP</code>, even browsers like Google, Mozilla .. have been working for a long time on a user interface that negatively reinforces HTTP and positively reinforces secure HTTPS.</p>
+
+<p>You can read more about “HTTPS Everywhere” <a href="https://www.websecurity.symantec.com/security-topics/https-everywhere">here</a>.</p>
+
+<p>It’s recommended to enhance our servers’ security, however, that means that HTTP requests will be rejected by servers configured to accept only HTTPS. This poses a problem for developers who use a local development environment because all of them run on <code class="highlighter-rouge">http://localhost</code>.</p>
+
+<p>If you don’t want to run into a situation where your local development environment requests to the server start getting rejected, follow these steps to secure your local environment.</p>
+
+<h1 id="how-ssl-works">How SSL works</h1>
+<p>Since <code class="highlighter-rouge">HTTPS</code> uses <code class="highlighter-rouge">SSL</code> protocol to secure the communication between clients and server, let’s see how SSL works before going deeper into technical details.</p>
+
+<p>SSL fundamentally works with the following concepts:</p>
+
+<ul>
+  <li>
+    <p><strong>Asymmetric Cryptography</strong> uses a key pair for data encryption/decryption named <code class="highlighter-rouge">public</code> and <code class="highlighter-rouge">private</code> keys.Every server has his own key pair and any one who wants to send data(requests) to that server should encryt it with the public key(also known as digital certificate:public key + other information) of that server.
+  Like that only the one who has the private key can decrypt the data . 
+  In https, asymmetric cryptography is used to initiate the communication between server and client which is known as SSL handshake.
+  In handshake stage server and client exchange another key which is the secret key of symmetric cryptography.</p>
+  </li>
+  <li>
+    <p><strong>Symmetric Cryptography</strong> uses only one key for data encryption/decryption.
+  In HTTPS, symmetric encryption is used to encrypt all the communication between server and client and the reason is that asymmetric encryption is more resource intensive.
+To achieve an SSL communication we need to set an <code class="highlighter-rouge">infrastructure</code> that includes roles, policies, and procedures needed to create, manage, distribute, use, store, and revoke digital certificates and manage public key encryption.This infrastructure is called <code class="highlighter-rouge">PKI(Public Key Infrastructure)</code>.</p>
+  </li>
+</ul>
+
+<h1 id="step1-root-cacertificate-authority">Step1: Root CA(Certificate Authority)</h1>
+
+<hr />
+
+<p><img src="https://blog.cloudflare.com/content/images/2015/06/anatomy-of-a-certificate.png" alt="TLS" /></p>
+
+<hr />
+
+<p>As a demonstration, I decided to secure a <code class="highlighter-rouge">local nginx application</code> and take advantages of a <code class="highlighter-rouge">PKI(Public Key Infrastructure)</code> by creating a digital certificate for the application using Openssl tool and enabling ssl in Nginx configuration.</p>
+
+<p>You will find several articles detailing instructions on how HTTPS can be implemented on localhost but browsers will throw an <code class="highlighter-rouge">"NET::ERR_CERT_COMMON_NAME_INVALID"</code> error every time you try to access to the application and you need to accept it as an exception .
+  The reason is that the certificate used by the application is unknown for the browser and it should be signed by a known <code class="highlighter-rouge">CA</code>.</p>
+
+<p>You can try the following steps by yourself using our <a href="https://katacoda.com/abir/scenarios/secure-loclahost-with-ssl">Katacoda scenario</a> .</p>
+
+<p>So first step is to create a <code class="highlighter-rouge">Root CA</code> for development purposes instead of buying one from CA providers like Symantec or DigiCert.That CA can be used after that to sign any number of certificates we want.</p>
+<ul>
+  <li>
+    <p><strong>First of all we have to prepare a folder to store all our CA data (we assume that Nginx is installed and we have /etc/nginx folder ) :</strong></p>
+
+    <blockquote>
+      <p>$ mkdir /etc/nginx/pki</p>
+    </blockquote>
+
+    <blockquote>
+      <p>$ cd /etc/nginx/pki</p>
+    </blockquote>
+
+    <blockquote>
+      <p>$ mkdir -p db/ca.db.certs</p>
+    </blockquote>
+
+    <blockquote>
+      <p>$ mkdir config</p>
+    </blockquote>
+
+    <blockquote>
+      <p>$ mkdir certificats</p>
+    </blockquote>
+
+    <blockquote>
+      <p>$ echo ‘01’&gt; db/ca.db.serial</p>
+    </blockquote>
+
+    <blockquote>
+      <p>$ cp /dev/null db/ca.db.index</p>
+    </blockquote>
+  </li>
+  <li>
+    <p><strong>After that we need to add <code class="highlighter-rouge">config/ca.config</code> file that will be used by openssl when signing certificates with our CA :</strong></p>
+  </li>
+</ul>
+
+<noscript><pre>400: Invalid request
+</pre></noscript>
+<script src="https://gist.github.com/4bddd5e37c20ffaca9ba668abb7d3aad.js"> </script>
+
+<ul>
+  <li>
+    <p><strong>Next step is to create the private key of our CA certificate :</strong></p>
+
+    <blockquote>
+      <p>$ openssl genrsa -des3 -out certificats/ca.key 2048</p>
+    </blockquote>
+  </li>
+</ul>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>     Command Explanation :
+      genrsa        generate private RSA key
+     -des3       encrypt the key with DES 
+     -out &lt;file&gt;   output file of the RSA key
+      2048          Bitssize of the key
+</code></pre></div></div>
+
+<ul>
+  <li>
+    <p><strong>Using this private key we will create a self-signed root certificate :</strong></p>
+
+    <blockquote>
+      <p>$ openssl req -new -x509 -days 3000 -key certificats/ca.key -out certificats/ca.crt</p>
+    </blockquote>
+  </li>
+</ul>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>     Command Explanation :
+      req             create a certificate signing request
+     -new            create a new signing request
+     -x509           output a self signed certificate instead of a certificate request
+     -days &lt;n&gt;       number of days to certify the certificate for
+     -key &lt;file&gt;     specifies the private key file
+     -out &lt;file&gt;     self signed root ca certificate
+</code></pre></div></div>
+
+<ul>
+  <li>
+    <p><strong>Now let’s generate the DER file that will be imported in browsers :</strong></p>
+
+    <blockquote>
+      <p>$ openssl x509 -in certificats/ca.crt -outform DER -out certificats/ca.der</p>
+    </blockquote>
+  </li>
+</ul>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>     Command Explanation :
+      req             create a certificate signing request
+     -new            create a new signing request
+     -x509           output a self signed certificate instead of a certificate request
+     -days &lt;n&gt;       number of days to certify the certificate for
+     -key &lt;file&gt;     specifies the private key file
+     -out &lt;file&gt;     self signed root ca certificate
+</code></pre></div></div>
+
+<h1 id="step2-server-certificate-singed-by-the-ca">Step2: Server certificate (singed by the ca)</h1>
+
+<p><br /></p>
+
+<ul>
+  <li>
+    <p><strong>Same thing as the CA we need to create a private key first for our server certificate :</strong></p>
+
+    <blockquote>
+      <p>$ openssl genrsa -out certificats/nginx.key 2048</p>
+    </blockquote>
+  </li>
+</ul>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>     Command Explanation :
+      genrsa        generate private RSA key
+     -out &lt;file&gt;   output file of the RSA key
+      2048          Bitssize of the key
+</code></pre></div></div>
+
+<p><br /></p>
+
+<ul>
+  <li><strong>To obtain an SSL certificate we need to use OpenSSL to create a certificate signing request (CSR) that can be sent to a Certificate Authority (CA) :</strong></li>
+</ul>
+
+<p><br /></p>
+
+<blockquote>
+  <p>The CSR contains the common name(s) we want our certificate to secure, so we need to make sure when writing the common name which is the domain name that our ca will secure.</p>
+</blockquote>
+
+<p>In order for a CSR to be created, it needs to have a private key from which the public key is extracted. This can be done by using an existing private key or generating a new one.
+Because of the security issues associated with using an existing private key, it’s recommended to generate a brand new private key whenever we create a CSR. Because it’s just an example I’m using an existing private key.</p>
+
+<p><br /></p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code> &gt; $ openssl req -days 365 -new -key certificats/nginx.key -out certificats/nginx.csr
+</code></pre></div></div>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>    Command Explanation :
+     req             create a certificate signing request
+    -days &lt;n&gt;       number of days to certify the certificate for
+    -new            create a new signing request
+    -key &lt;file&gt;     specifies the private key file
+    -out &lt;file&gt;     output file of CA CSR 
+</code></pre></div></div>
+
+<ul>
+  <li>
+    <p><strong>Finally let’s sign our Nginx certificate with CA that we made :</strong></p>
+
+    <blockquote>
+      <p>$ openssl ca -config config/ca.config -out certificats/nginx.crt -infiles certificats/nginx.csr</p>
+    </blockquote>
+  </li>
+</ul>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>     Command Explanation :
+      ca                    certificate authority management
+     -config &lt;file&gt;        use the given openssl config file
+     -out &lt;file&gt;           output file (signed certificate)
+     -infiles &lt;file&gt;            input file (the CSR)
+</code></pre></div></div>
+
+<h1 id="step3-certificate-installation">Step3: Certificate installation</h1>
+
+<p><br /></p>
+
+<ul>
+  <li>
+    <p><strong>Now we should have 3 files in /etc/nginx/certificats which are nginx.crt, nginx.csr and nginx.key (copy them to /etc/nginx/ssl or use them directly from the pki folder):</strong></p>
+  </li>
+  <li>
+    <p><strong>Next step is enabling ssl connexion in Nginx configuration file which is “/etc/nginx/sites-available/default “ , so open the file and uncomment those lines :</strong></p>
+  </li>
+</ul>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>      listen 443 ssl default_server;
+      listen [::]:443 ssl default_server;
+</code></pre></div></div>
+
+<ul>
+  <li><strong>After that add those lines :</strong></li>
+</ul>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>      ssl_certificate /etc/nginx/pki/certificats/nginx.crt;
+      ssl_certificate_key /etc/nginx/pki/certificats/nginx.key;
+</code></pre></div></div>
+
+<ul>
+  <li>
+    <p><strong>To save changes we need to restart Nginx service by this command :</strong></p>
+
+    <blockquote>
+      <p>$ service nginx restart</p>
+    </blockquote>
+  </li>
+</ul>
+
+<p>It can fail if the generated certificate and key are not well formed.
+After that we have to import der file of our ca into mozilla browser as a trusted authority .
+Once it’s imported we can access to our url application with https and <code class="highlighter-rouge">Green Lock</code> in our case it is <code class="highlighter-rouge">https://localhost</code> where <code class="highlighter-rouge">localhost</code> is the common name that I gave for the nginx.crt and nginx.csr.</p>
+
+
+  </div>
+  
+
+<div id="disqus_thread"></div>
+<script>
+
+(function() { // DON'T EDIT BELOW THIS LINE
+  var d = document, s = d.createElement('script');
+  s.src = '//abir.disqus.com/embed.js';
+  s.setAttribute('data-timestamp', +new Date());
+  (d.head || d.body).appendChild(s);
+})();
+</script>
+
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+
+
+
+</div>
+
+    </div>
+
+</body>
+
+</html>
